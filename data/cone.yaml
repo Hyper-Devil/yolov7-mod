@@ -1,0 +1,9 @@
+# train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
+train: /yolov7/datasets/VOCdevkit/images/train
+val: /yolov7/datasets/VOCdevkit/images/val
+
+# number of classes
+nc: 3
+
+# class names
+names: [ 'red', 'blue', 'yellow']
