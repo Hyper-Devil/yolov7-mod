@@ -172,7 +172,7 @@ def check_dataset(dict):
             else:
                 raise Exception('Dataset not found.')
 
-
+# make_divisible(A,B)：找到比A大的，能整除B的最小整数。
 def make_divisible(x, divisor):
     # Returns x evenly divisible by divisor
     return math.ceil(x / divisor) * divisor

@@ -736,18 +736,23 @@ class Model(nn.Module):
 def parse_model(d, ch):  # model_dict, input_channels(3)
     logger.info('\n%3s%18s%3s%10s  %-40s%-30s' % ('', 'from', 'n', 'params', 'module', 'arguments'))
     anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple']
+    # 进行判断anchors是不是一个列表 6//2=3
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
 
+    # layers: 所有的网络层
+    # save： 标记该层网络的特征图是否需要保存（因为模型中存在跳跃连接，有的特征图之后需要用到）比如save=[1,2,5]则第1,2,5层需要保存特征图
+    # ch 该层所输出的通道数，比如save[i]=n表示第i层输出通道数为n
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
     for i, (f, n, m, args) in enumerate(d['backbone'] + d['head']):  # from, number, module, args
         m = eval(m) if isinstance(m, str) else m  # eval strings
+        # args是一个列表，这一步把列表中的内容取出来
         for j, a in enumerate(args):
             try:
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
             except:
                 pass
-
+        # n从yaml文件读出，用户应保证最小为1
         n = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in [nn.Conv2d, Conv, RobustConv, RobustConv2, DWConv, GhostConv, RepConv, RepConv_OREPA, DownC, 
                  SPP, SPPF, SPPCSPC, GhostSPPCSPC, MixConv2d, Focus, Stem, GhostStem, CrossConv, 
@@ -759,12 +764,16 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                  RepResX, RepResXCSPA, RepResXCSPB, RepResXCSPC, 
                  Ghost, GhostCSPA, GhostCSPB, GhostCSPC,
                  SwinTransformerBlock, STCSPA, STCSPB, STCSPC,
-                 SwinTransformer2Block, ST2CSPA, ST2CSPB, ST2CSPC]:
+                 SwinTransformer2Block, ST2CSPA, ST2CSPB, ST2CSPC, ShuffleAttention]:
+            # c1: 输入通道数 c2：输出通道数
             c1, c2 = ch[f], args[0]
-            if c2 != no:  # if not output
+            if c2 != no:  # if not output  # 该层不是最后一层，则将通道数乘以宽度因子，宽度因子作用于除了最后一层之外的所有层
+                # 只要我的输出通道不是最后一层，我都要给输出通道数变为靠近8的整数倍
                 c2 = make_divisible(c2 * gw, 8)
-
+            # 原始的arg参数进行了解析，并且重新构造了args列表，因为原始传入的第一个参数为输出通道数，并非最终的通道数，并且args列表新增c1
+            # 将前面的运算结果保存在args中，它也就是最终的方法参数。
             args = [c1, c2, *args[1:]]
+            # 判断是否重复几次，可见能叠加的也就以下几个模块
             if m in [DownC, SPPCSPC, GhostSPPCSPC, 
                      BottleneckCSPA, BottleneckCSPB, BottleneckCSPC, 
                      RepBottleneckCSPA, RepBottleneckCSPB, RepBottleneckCSPC, 
@@ -775,11 +784,13 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                      GhostCSPA, GhostCSPB, GhostCSPC,
                      STCSPA, STCSPB, STCSPC,
                      ST2CSPA, ST2CSPB, ST2CSPC]:
+                # 参数列表在第2个位置新增模块循环的次数数据
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
         elif m is Concat:
+            # c1，c2为通道数大小，ch为一个列表，存储每一层通道数的数值
             c2 = sum([ch[x] for x in f])
         elif m is Chuncat:
             c2 = sum([ch[x] for x in f])
@@ -800,13 +811,22 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         else:
             c2 = ch[f]
 
+        # 对当前模块序列化之后的层传递给m_
+        # 如果n=1，说明该模块就一个，不重复，直接 m_ = m(*args)
+        # 如果n>1，说明模块重复了几次，m_ = nn.Sequential(*(m(*args) for _ in range(
         m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)  # module
+        
+        # 输出到terminal的模型信息，进行记录输出
         t = str(m)[8:-2].replace('__main__.', '')  # module type
         np = sum([x.numel() for x in m_.parameters()])  # number params
         m_.i, m_.f, m_.type, m_.np = i, f, t, np  # attach index, 'from' index, type, number params
         logger.info('%3s%18s%3s%10.0f  %-40s%-30s' % (i, f, n, np, t, args))  # print
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)  # append to savelist
+         
+        # layers为整个model的层，将模块的层添加到整个layers层
         layers.append(m_)
+        # 如果是初次迭代，则新创建一个ch（因为形参ch在创建第一个网络模块时需要用到，所以创建网络模块之后再初始化ch）
+        # ch在此定义，即每一层输出通道数的列表，一共24个元素，对应yolov5s-24层每层通道数
         if i == 0:
             ch = []
         ch.append(c2)
