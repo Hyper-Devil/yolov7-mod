@@ -19,15 +19,16 @@ import cv2
 #          'hair drier', 'toothbrush']  # class names
 # yolov7网络中，detect层前的三层输出
 names = ['red', 'blue', 'yellow']
-target_layers = ['102_act', '103_act', '104_act']  # yolov7
-# target_layers = ['74_act', '75_act', '76_act']  # yolov7-tiny
+# target_layers = ['102_act', '103_act', '104_act']  # yolov7
+target_layers = ['74_act', '75_act', '76_act']  # yolov7-tiny 005 001
+# target_layers = ['77_act', '78_act', '79_act']  # yolov7-tiny 002
 
 # Arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('--model-path', type=str, default="weights/yolov7.pt", help='Path to the model')
-parser.add_argument('--img-path', type=str, default='figure/cam', help='input image path')
+parser.add_argument('--model-path', type=str, default="runs/train/005-yolov7-tiny-cone/weights/best.pt", help='Path to the model')
+parser.add_argument('--img-path', type=str, default='datasets/VOCdevkit/images/val/0529nanqu-0614.jpg', help='input image path')
 parser.add_argument('--output-dir', type=str, default='outputs/', help='output dir')
-parser.add_argument('--img-size', type=int, default=640, help="input image size")
+parser.add_argument('--img-size', type=int, default=416, help="input image size")
 parser.add_argument('--target-layer', type=str, default='76_act',
                     help='The layer hierarchical address to which gradcam will applied,'
                          ' the names should be separated by underline')
