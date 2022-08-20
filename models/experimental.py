@@ -234,7 +234,7 @@ class End2End(nn.Module):
 
 
 
-def attempt_load(weights, map_location=None):
+def attempt_load(weights, map_location=None, inplace=True):
     # Loads an ensemble of models weights=[a,b,c] or a single model weights=[a] or weights=a
     model = Ensemble()
     for w in weights if isinstance(weights, list) else [weights]:
@@ -245,7 +245,8 @@ def attempt_load(weights, map_location=None):
     # Compatibility updates
     for m in model.modules():
         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU]:
-            m.inplace = True  # pytorch 1.7.0 compatibility
+            # m.inplace = True  # pytorch 1.7.0 compatibility
+            m.inplace = inplace    # GradCAM
         elif type(m) is nn.Upsample:
             m.recompute_scale_factor = None  # torch 1.11.0 compatibility
         elif type(m) is Conv:
