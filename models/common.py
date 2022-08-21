@@ -2099,3 +2099,57 @@ class ShuffleAttention(nn.Module):
 #     print(output.shape) 
 
 ##### end of ShuffleAttention #####
+
+class gnconv(nn.Module): # gnconv模块
+    def __init__(self, dim, dim_out, order=5, gflayer=None, h=14, w=8, s=1.0,act=True):
+        super().__init__()
+        self.order = order
+        self.dims = [dim // 2 ** i for i in range(order)]
+        self.dims.reverse()
+        self.proj_in = nn.Conv2d(dim, 2*dim, 1)
+
+        if gflayer is None:
+            self.dwconv = get_dwconv(sum(self.dims), 7, True)
+        else:
+            self.dwconv = gflayer(sum(self.dims), h=h, w=w)
+        
+        self.proj_out = nn.Conv2d(dim, dim_out, 1)
+
+        self.pws = nn.ModuleList(
+            [nn.Conv2d(self.dims[i], self.dims[i+1], 1) for i in range(order-1)]
+        )
+        self.scale = s
+
+        # self.bn = nn.BatchNorm2d(dim)
+        # self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+
+    def forward(self, x, mask=None, dummy=False):
+        fused_x = self.proj_in(x)
+        pwa, abc = torch.split(fused_x, (self.dims[0], sum(self.dims)), dim=1)
+        dw_abc = self.dwconv(abc) * self.scale
+        dw_list = torch.split(dw_abc, self.dims, dim=1)
+        x = pwa * dw_list[0]
+        for i in range(self.order -1):
+            x = self.pws[i](x) * dw_list[i+1]
+        x = self.proj_out(x)
+
+        # x = self.act(self.bn(x))
+
+        return x
+
+    def fuseforward(self, x):
+        fused_x = self.proj_in(x)
+        pwa, abc = torch.split(fused_x, (self.dims[0], sum(self.dims)), dim=1)
+        dw_abc = self.dwconv(abc) * self.scale
+        dw_list = torch.split(dw_abc, self.dims, dim=1)
+        x = pwa * dw_list[0]
+        for i in range(self.order -1):
+            x = self.pws[i](x) * dw_list[i+1]
+        x = self.proj_out(x)
+
+        # x = self.act(x)
+        
+        return x
+
+def get_dwconv(dim, kernel, bias):
+    return nn.Conv2d(dim, dim, kernel_size=kernel, padding=(kernel-1)//2 ,bias=bias, groups=dim)
