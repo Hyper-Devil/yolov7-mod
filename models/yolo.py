@@ -772,7 +772,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                  RepResX, RepResXCSPA, RepResXCSPB, RepResXCSPC, 
                  Ghost, GhostCSPA, GhostCSPB, GhostCSPC,
                  SwinTransformerBlock, STCSPA, STCSPB, STCSPC,
-                 SwinTransformer2Block, ST2CSPA, ST2CSPB, ST2CSPC, ShuffleAttention,gnconv]:
+                 SwinTransformer2Block, ST2CSPA, ST2CSPB, ST2CSPC, ShuffleAttention,gnconv,HorNetBlock]:
             # c1: 输入通道数 c2：输出通道数
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output  # 该层不是最后一层，则将通道数乘以宽度因子，宽度因子作用于除了最后一层之外的所有层
