@@ -178,8 +178,8 @@ class IDetect(nn.Module):
         elif self.concat:
             out = torch.cat(z, 1)            
         else:
-            # out = (torch.cat(z, 1), x)
-            out = (torch.cat(z, 1), torch.cat(logits_, 1), x)  # GradCAM 4/4
+            out = (torch.cat(z, 1), x)
+            # out = (torch.cat(z, 1), torch.cat(logits_, 1), x)  # GradCAM 4/4
 
         return out
     
